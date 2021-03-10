@@ -1,0 +1,49 @@
+SELECT f.flight_id,
+       f.flight_no,
+       f.departure_airport,
+       a2.city AS departure_city,
+       f.arrival_airport,
+       a.city AS arrival_city,
+       (CASE
+            WHEN a.city = 'Moscow' THEN 1209
+            WHEN a.city = 'Belgorod' THEN 639
+            ELSE 3664
+        END) AS distance,
+       f.actual_departure AS depature,
+       f.actual_arrival AS arrival,
+       date_part('hour', f.actual_arrival - f.actual_departure) * 60 + date_part('minute', f.actual_arrival - f.actual_departure) AS flight_time,
+       ac.model AS aircraft_model,
+       count(t.passenger_id) AS number_of_passenger,
+       sum(CASE
+               WHEN tf.fare_conditions like 'Economy' THEN 1
+               ELSE 0
+           END) AS economy,
+       sum(CASE
+               WHEN tf.fare_conditions like 'Business' THEN 1
+               ELSE 0
+           END) AS business,
+       sum(b.total_amount) AS booking_sum
+  FROM dst_project.flights AS f
+       LEFT JOIN dst_project.ticket_flights AS tf 
+              ON tf.flight_id = f.flight_id
+       LEFT JOIN dst_project.tickets AS t 
+              ON t.ticket_no = tf.ticket_no
+       LEFT JOIN dst_project.bookings AS b 
+              ON b.book_ref = t.book_ref
+       LEFT JOIN dst_project.aircrafts AS ac 
+              ON ac.aircraft_code = f.aircraft_code
+       LEFT JOIN dst_project.airports AS a 
+              ON f.arrival_airport = a.airport_code
+       LEFT JOIN dst_project.airports AS a2 
+              ON f.departure_airport = a2.airport_code
+ WHERE f.departure_airport = 'AAQ'
+       AND (date_trunc('month', f.scheduled_departure) in ('2017-01-01',
+                                                           '2017-02-01',
+                                                           '2017-12-01'))
+       AND f.status not in ('Cancelled')
+ GROUP BY f.flight_id,
+          ac.model,
+          f.flight_no,
+          a.city,
+          a2.city
+ ORDER BY sum(b.total_amount) DESC NULLS LAST;
